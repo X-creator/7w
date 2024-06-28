@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://x-creator.github.io/7w",
+  "homepage": "/7w",
   "scripts": {
     "start": "vite --open",
     "build": "tsc -b && vite build",
