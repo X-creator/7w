@@ -1,0 +1,28 @@
+@import "@fontsource/roboto/cyrillic-300.css";
+@import "@fontsource/roboto/cyrillic-400.css";
+@import "@fontsource/roboto/cyrillic-500.css";
+@import "@fontsource/roboto/cyrillic-700.css";
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
