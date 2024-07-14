@@ -23,10 +23,6 @@ export const NewRowSchema = UpdateRowSchema.omit({ id: true }).extend({
   parentId: z.number().positive().nullable(),
 });
 
-export const TreeRowSchema: z.ZodType<TreeRow> = RowSchema.extend({
-  child: z.lazy(() => TreeRowSchema.array()),
-});
-
 export const MutationResponseSchema = z
   .object({
     current: RowSchema.nullable(),
@@ -34,10 +30,14 @@ export const MutationResponseSchema = z
   })
   .strict();
 
+export const TreeRowSchema: z.ZodType<TreeRow> = RowSchema.extend({
+  child: z.lazy(() => TreeRowSchema.array()),
+});
+
 export type Row = z.infer<typeof RowSchema>;
 export type UpdateRow = z.infer<typeof UpdateRowSchema>;
 export type NewRow = z.infer<typeof NewRowSchema>;
+export type MutationResponse = z.infer<typeof MutationResponseSchema>;
 export type TreeRow = z.infer<typeof RowSchema> & {
   child: TreeRow[];
 };
-export type MutationResponse = z.infer<typeof MutationResponseSchema>;

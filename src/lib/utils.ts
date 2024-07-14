@@ -1,10 +1,7 @@
-type TreeLike = {
+export interface TreeLike {
   child: TreeLike[];
-} & Record<string, unknown>;
-
-export interface AugmentedTree extends TreeLike {
   id: string | number;
-  parentId: AugmentedTree["id"] | null;
+  parentId: TreeLike["id"] | null;
   childCount: number[];
   depth: number;
   pinFactor: number;
@@ -12,16 +9,10 @@ export interface AugmentedTree extends TreeLike {
 
 export const treeToPlain = (tree: TreeLike[]) => {
   const COUNT_ITSELF = 1;
-  const rows: AugmentedTree[] = [];
-  const rowsDict: Record<AugmentedTree["id"], AugmentedTree> = {};
+  const rows: TreeLike[] = [];
+  const rowsDict: Record<TreeLike["id"], TreeLike> = {};
 
-  const traverse = (
-    elem: TreeLike,
-    parentId: AugmentedTree["parentId"] = null,
-    depth: AugmentedTree["depth"] = 0,
-  ) => {
-    const row = elem as AugmentedTree;
-
+  const traverse = (row: TreeLike, parentId: TreeLike["parentId"], depth: TreeLike["depth"]) => {
     row.parentId = parentId;
     row.childCount = [];
     row.depth = depth;
@@ -29,19 +20,69 @@ export const treeToPlain = (tree: TreeLike[]) => {
     rows.push(row);
     rowsDict[row.id] = row;
 
-    row.child.forEach((item, index) => {
-      row.childCount.push(traverse(item, row.id, depth + 1));
-      item.pinFactor = index > 0 ? row.childCount[index - 1] : 1;
+    row.child.forEach((childRow, index) => {
+      row.childCount.push(traverse(childRow, row.id, depth + 1));
+      childRow.pinFactor = index > 0 ? row.childCount[index - 1] : 1;
     });
 
-    return !row.child.length
-      ? COUNT_ITSELF
-      : row.childCount.reduce((acc, curr) => acc + curr, COUNT_ITSELF);
+    return !row.child.length ? COUNT_ITSELF : row.childCount.reduce((a, b) => a + b, COUNT_ITSELF);
   };
 
   tree.forEach((item) => {
-    traverse(item);
+    traverse(item, item.parentId ?? null, item.depth ?? 0);
   });
 
-  return { tree, rows, rowsDict };
+  return { rows, rowsDict };
 };
+
+interface IncludeOptions<T> {
+  include: (keyof T)[];
+  exclude?: never;
+}
+
+interface ExcludeOptions<T> {
+  exclude: (keyof T)[];
+  include?: never;
+}
+
+type SelectorOptions<T> = IncludeOptions<T> | ExcludeOptions<T>;
+
+export function selector<T>(node: T): T;
+
+export function selector<T extends object, Opt extends IncludeOptions<T>>(
+  node: T,
+  options: Opt,
+): Pick<T, Opt["include"][number]>;
+
+export function selector<T extends object, Opt extends ExcludeOptions<T>>(
+  node: T,
+  options: Opt,
+): Omit<T, Opt["exclude"][number]>;
+
+export function selector<T extends object, Opt extends SelectorOptions<T>>(node: T, options?: Opt) {
+  if (typeof node !== "object" || Array.isArray(node)) return node;
+
+  const reducer = (res: T, key: keyof T) => {
+    res[key] =
+      typeof node[key] === "object"
+        ? Object.assign(
+            Array.isArray(node[key]) ? [] : {}, // 1 level copy
+            node[key],
+          )
+        : node[key];
+
+    return res;
+  };
+
+  if (options && options.include) return options.include.reduce(reducer, {} as T);
+
+  const copy = (Object.keys(node) as (keyof T)[]).reduce(reducer, {} as T);
+
+  if (options && options.exclude)
+    return options.exclude.reduce((res, key) => {
+      delete res[key];
+      return res;
+    }, copy);
+
+  return copy; // returns node copy when no options
+}

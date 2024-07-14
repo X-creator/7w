@@ -1,5 +1,7 @@
 import { GridColDef, GridEventListener, GridRowEditStopReasons } from "@mui/x-data-grid";
 import { renderActions } from "./renderFn.tsx";
+import { NewRow } from "schema";
+import { TreeLike } from "lib/utils.ts";
 
 export const NEW_ROW_PREFIX = "add-";
 export const ROW_HEIGHT = 60;
@@ -13,18 +15,19 @@ export const columns: GridColDef[] = [
     headerAlign: "left",
     align: "left",
     getActions: renderActions,
-    sortable: false,
   },
   {
-    flex: 1,
+    flex: 2,
     field: "rowName",
     headerName: "Наименование работ",
     headerAlign: "left",
     align: "left",
     sortable: false,
     editable: true,
+    minWidth: 150,
   },
   {
+    flex: 1,
     field: "salary",
     headerName: "Основная з/п",
     headerAlign: "left",
@@ -35,6 +38,7 @@ export const columns: GridColDef[] = [
     type: "number",
   },
   {
+    flex: 1,
     field: "equipmentCosts",
     headerName: "Оборудование",
     headerAlign: "left",
@@ -45,6 +49,7 @@ export const columns: GridColDef[] = [
     type: "number",
   },
   {
+    flex: 1,
     field: "overheads",
     headerName: "Накладные расходы",
     headerAlign: "left",
@@ -55,6 +60,7 @@ export const columns: GridColDef[] = [
     type: "number",
   },
   {
+    flex: 1,
     field: "estimatedProfit",
     headerName: "Сметная прибыль",
     headerAlign: "left",
@@ -72,9 +78,11 @@ export const onRowEditStop: GridEventListener<"rowEditStop"> = (params, event) =
   }
 };
 
-export const createNewRow = (parentId: number | null) => ({
+export const createNewRow = (parentRow: NewRow & TreeLike) => ({
   id: `${NEW_ROW_PREFIX}${Date.now()}`,
-  parentId,
+  parentId: parentRow.id,
+  depth: parentRow.depth + 1,
+  pinFactor: parentRow.childCount.reduce((a, b) => a + b, 1), //already count itself
   equipmentCosts: 0,
   estimatedProfit: 0,
   machineOperatorSalary: 0,
@@ -86,4 +94,5 @@ export const createNewRow = (parentId: number | null) => ({
   salary: 0,
   supportCosts: 0,
   child: [],
+  childCount: [],
 });

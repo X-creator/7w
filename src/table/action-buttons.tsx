@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   GridActionsCellItem,
   GridState,
@@ -10,38 +10,35 @@ import Paper from "@mui/material/Paper";
 import FeedIcon from "@mui/icons-material/Feed";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { deepOrange } from "@mui/material/colors";
-import { queryClient } from "api";
-import { getTreeRowsQuery } from "api/queries.ts";
 import { deleteRowMutation } from "api/mutations.ts";
-import { treeToPlain } from "lib/utils.ts";
 import { createNewRow, MARGIN, NEW_ROW_PREFIX, ROW_HEIGHT } from "./helper.ts";
+import { NewRow } from "schema";
+import { TreeLike } from "lib/utils.ts";
+import { useStore } from "lib/store/use-store.ts";
 
 interface ActionProps {
-  depth: number;
-  id: number;
-  pinFactor: number;
+  row: NewRow & TreeLike;
 }
 
-export default function ActionButtons({ depth, id, pinFactor }: ActionProps) {
+export default function ActionButtons({ row }: ActionProps) {
+  const store = useStore();
   const apiRef = useGridApiContext();
-  const { data } = useQuery(getTreeRowsQuery);
   const deleteRow = useMutation(deleteRowMutation);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isGlobalEditing, setIsGlobalEditing] = useState<boolean>(false);
-  const [isEditing, setIsEditing] = useState<boolean>(() => `${id}`.startsWith(NEW_ROW_PREFIX));
+  const [isEditing, setIsEditing] = useState<boolean>(() => `${row.id}`.startsWith(NEW_ROW_PREFIX));
+  const isPending = isGlobalEditing || deleteRow.isPending; // prevent race condition
 
   useGridApiEventHandler(apiRef, "stateChange", (state: GridState) => {
-    setIsEditing(Boolean(state.editRows[id]));
+    setIsEditing(Boolean(state.editRows[row.id]));
     setIsGlobalEditing(Object.values(state.editRows).length > 0);
   });
 
   const onAdd = () => {
-    if (isGlobalEditing) return;
+    if (isPending) return;
 
-    const newRow = createNewRow(id);
-    data?.rowsDict[id].child?.push(newRow);
-
-    queryClient.setQueryData(getTreeRowsQuery.queryKey, treeToPlain(data?.tree ?? []));
+    const newRow = createNewRow(row);
+    store.addNode(newRow);
 
     setTimeout(() => {
       apiRef.current.startRowEditMode({ id: newRow.id, fieldToFocus: "rowName" });
@@ -49,8 +46,19 @@ export default function ActionButtons({ depth, id, pinFactor }: ActionProps) {
   };
 
   const onDelete = () => {
-    if (!data || isGlobalEditing) return;
-    deleteRow.mutate(id);
+    if (isPending) return;
+
+    store.deleteNode(row.id);
+
+    deleteRow.mutate(row.id as number, {
+      onSuccess: (data) => store.setState(data),
+      onError: () => {
+        store.revert({
+          type: "delete",
+          id: row.id,
+        });
+      },
+    });
   };
 
   const onMouseOver = () => {
@@ -66,9 +74,9 @@ export default function ActionButtons({ depth, id, pinFactor }: ActionProps) {
       elevation={0}
       onMouseLeave={onMouseLeave}
       sx={{
-        marginLeft: depth * MARGIN + "px",
+        marginLeft: row.depth * MARGIN + "px",
         background: "transparent",
-        marginRight: isHovered && !isGlobalEditing ? 0 : "30px",
+        marginRight: isHovered && !isPending ? 0 : "30px",
         "&:hover": {
           background: "rgb(65, 65, 68)",
         },
@@ -91,9 +99,9 @@ export default function ActionButtons({ depth, id, pinFactor }: ActionProps) {
             position: "relative",
             display: "flex",
 
-            ...(depth > 0 && {
+            ...(row.depth > 0 && {
               "&::before": {
-                height: ROW_HEIGHT * pinFactor,
+                height: ROW_HEIGHT * row.pinFactor,
                 content: "''",
                 position: "absolute",
                 bottom: "50%",
@@ -120,7 +128,7 @@ export default function ActionButtons({ depth, id, pinFactor }: ActionProps) {
           },
         }}
       />
-      {isHovered && !isGlobalEditing && (
+      {isHovered && !isPending && (
         <GridActionsCellItem
           icon={<DeleteIcon />}
           key="Delete"
